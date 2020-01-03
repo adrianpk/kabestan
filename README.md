@@ -2,6 +2,8 @@
 
 A foundation library and CLI generator for web applications.
 
+<img src="docs/img/users_index.png" width="480">
+
 ## Notes
 
 After having been playing a bit with [this](https://gitlab.com/mikrowezel/backend/granica) I decided to take a lighter approach.
