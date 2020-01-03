@@ -11,15 +11,15 @@ import (
 
 const (
 	// Disabled level
-	Disabled = -1
+	DisabledLevel = -1
 	// Debug level
-	Debug = iota
+	DebugLevel = iota
 	// Info level
-	Info
+	InfoLevel
 	// Warn level
-	Warn
+	WarnLevel
 	// Error level
-	Error
+	ErrorLevel
 )
 
 const (
@@ -124,8 +124,8 @@ func CtxLogger(ctx context.Context) (logger *Logger, ok bool) {
 // the default static fields for each new built instance
 // if they were not yet configured.
 func newLogger(level int, name string, stfields ...interface{}) *Logger {
-	if level < Disabled || level > Error {
-		level = Info
+	if level < DisabledLevel || level > ErrorLevel {
+		level = InfoLevel
 	}
 
 	stdl := zerolog.New(os.Stdout).With().Timestamp().Logger()
@@ -154,8 +154,8 @@ func newLogger(level int, name string, stfields ...interface{}) *Logger {
 // the default static fields for each new built instance
 // if they were not yet configured.
 func NewDevLogger(level int, name string, stfields ...interface{}) *Logger {
-	if level < Disabled || level > Error {
-		level = Info
+	if level < DisabledLevel || level > ErrorLevel {
+		level = InfoLevel
 	}
 
 	stdl := log.Output(zerolog.ConsoleWriter{Out: os.Stdout})
@@ -228,7 +228,7 @@ func (l Logger) Error(err error, meta ...interface{}) {
 }
 
 func (l Logger) debugf(message string, fields []interface{}) {
-	if l.Level > Debug {
+	if l.Level > DebugLevel {
 		return
 	}
 	le := l.StdLog.Info()
@@ -237,7 +237,7 @@ func (l Logger) debugf(message string, fields []interface{}) {
 }
 
 func (l Logger) infof(message string, fields []interface{}) {
-	if l.Level > Info {
+	if l.Level > InfoLevel {
 		return
 	}
 	le := l.StdLog.Info()
@@ -246,7 +246,7 @@ func (l Logger) infof(message string, fields []interface{}) {
 }
 
 func (l Logger) warnf(message string, fields []interface{}) {
-	if l.Level > Warn {
+	if l.Level > WarnLevel {
 		return
 	}
 	le := l.StdLog.Info()
@@ -327,10 +327,10 @@ func stringify(val interface{}) string {
 func (l Logger) UpdateLogLevel(level int) {
 	// Allow info level to log the update
 	// But don't downgrade to it if Error is set.
-	current := Error
+	current := ErrorLevel
 	l.Info("Log level updated", "", "log level", level)
 	l.Level = current
-	if level < Disabled || level > Error {
+	if level < DisabledLevel || level > ErrorLevel {
 		l.Level = level
 		setLogLevel(&l.StdLog, level)
 		setLogLevel(&l.ErrLog, level)
