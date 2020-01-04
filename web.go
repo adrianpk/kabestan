@@ -502,29 +502,94 @@ func (ep *WebEndpoint) GetSession(r *http.Request, name ...string) *sessions.Ses
 	return s
 }
 
+func (ep *WebEndpoint) ReadCookieVal(r *http.Request, key string) (val string, ok bool) {
+	c, err := r.Cookie(SecureCookieKey)
+	if err != nil {
+		ep.Log.Info("No secure cookie")
+		ep.Log.Error(err)
+		return "", false
+	}
+
+	var vals map[string]string
+
+	// Decode the cookie content
+	err = ep.secCookieStore.Decode(SecureCookieKey, c.Value, &vals)
+	if err != nil {
+		ep.Log.Error(err)
+		return "", false
+	}
+
+	val, ok = vals[key]
+	if !ok {
+		ep.Log.Debug("No value stored in secure cookie", "key", key)
+		return val, false
+	}
+
+	ep.Log.Debug("Retrieved from secure cookie", "key", key, "val", val)
+
+	return val, true
+}
+
 func (ep *WebEndpoint) SetCookieVal(w http.ResponseWriter, r *http.Request, key, value string) {
 	c, err := r.Cookie(SecureCookieKey)
-	if err == nil {
-		vals := make(map[string]string)
-
-		// Decode the cookie content
-		err = ep.secCookieStore.Decode(SecureCookieKey, c.Value, &vals)
-		if err == nil {
-			// Update cookie value
-			vals[key] = value
-
-			// Encode values again
-			e, err := ep.secCookieStore.Encode(SecureCookieKey, vals)
-			if err == nil {
-				cookie := &http.Cookie{
-					Name:  SecureCookieKey,
-					Value: e,
-					Path:  "/",
-				}
-				http.SetCookie(w, cookie)
-			}
+	if err != nil {
+		ep.Log.Warn("No secure cookie present")
+		c = &http.Cookie{
+			Name: SecureCookieKey,
+			Path: "/",
+			// TODO: Get domain from ep.Cfg
+			// Domain: "127.0.0.1",
+			// TODO: Dev -> false, Prod -> true
+			Secure: false,
 		}
 	}
+
+	vals := make(map[string]string)
+
+	// Decode the cookie content
+	if c.Value != "" {
+		err = ep.secCookieStore.Decode(SecureCookieKey, c.Value, &vals)
+		if err != nil {
+			ep.Log.Warn("Cannot decode current secure cookie")
+		}
+	}
+
+	// Update cookie value
+	vals[key] = value
+
+	// Encode values again
+	e, err := ep.secCookieStore.Encode(SecureCookieKey, vals)
+	if err != nil {
+		ep.Log.Warn("Cannot encode secure cookie")
+		return
+	}
+
+	c.Value = e
+
+	ep.Log.Info("Storing secure cookie", "vals", vals, "encrypted", e)
+
+	http.SetCookie(w, c)
+}
+
+func (ep *WebEndpoint) DumpCookieValues(r *http.Request, key string) (values string) {
+	c, err := r.Cookie(SecureCookieKey)
+	if err != nil {
+		ep.Log.Info("No secure cookie---------------------------")
+		ep.Log.Error(err)
+		return "n/a"
+	}
+
+	var vals map[string]string
+
+	// Decode the cookie content
+	err = ep.secCookieStore.Decode(SecureCookieKey, c.Value, &vals)
+	if err != nil {
+		ep.Log.Info("Cannot decode cookie---------------------------")
+		ep.Log.Error(err)
+		return "n/a"
+	}
+
+	return fmt.Sprintf("+v", vals)
 }
 
 // Templates
@@ -666,7 +731,7 @@ func (ep *WebEndpoint) Redirect(w http.ResponseWriter, r *http.Request, url stri
 
 func (ep *WebEndpoint) RedirectWithFlash(w http.ResponseWriter, r *http.Request, url string, msg string, msgType MsgType) {
 	ep.StoreFlash(w, r, msg, msgType)
-	http.Redirect(w, r, url, 302)
+	http.Redirect(w, r, url, 303)
 }
 
 func (ep *WebEndpoint) Localizer(r *http.Request) *Localizer {
