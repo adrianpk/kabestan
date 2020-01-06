@@ -637,6 +637,40 @@ func (ep *WebEndpoint) WrapRes(w http.ResponseWriter, r *http.Request, data inte
 	return wr
 }
 
+func (ep *WebEndpoint) ErrorRedirect(w http.ResponseWriter, r *http.Request, redirPath, msgID string, err error) {
+	m := ep.Localize(r, msgID)
+	ep.RedirectWithFlash(w, r, redirPath, m, ErrorMT)
+	ep.Log.Error(err)
+}
+
+// Localization - I18N
+func (ep *WebEndpoint) Localize(r *http.Request, msgID string) string {
+	l := ep.Localizer(r)
+	if l == nil {
+		ep.Log.Warn("No localizer available")
+		return msgID
+	}
+
+	t, _, err := l.LocalizeWithTag(&i18n.LocalizeConfig{
+		MessageID: msgID,
+	})
+
+	if err != nil {
+		ep.Log.Error(err)
+		return msgID
+	}
+
+	//s.Log.Debug("Localized message", "value", t, "lang", lang)
+
+	return t
+}
+
+func (ep *WebEndpoint) localizeMessageID(l *i18n.Localizer, messageID string) (string, error) {
+	return l.Localize(&i18n.LocalizeConfig{
+		MessageID: messageID,
+	})
+}
+
 func (wr *WrappedRes) SetAction(fa FormAction) {
 	wr.Action = fa
 }
