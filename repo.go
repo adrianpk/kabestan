@@ -16,5 +16,5 @@ func SQLStrUpd(colName, fieldName string) string {
 
 // whereID build an SQL where clause for ID.
 func SQLWhereID(id string) string {
-	return fmt.Sprintf("WHERE id = '%s'", id)
+	return fmt.Sprintf("WHERE id = '%s' AND (is_deleted IS NULL OR NOT is_deleted);", id)
 }
