@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/jmoiron/sqlx"
-	_ "github.com/lib/pq" // package init.
 	uuid "github.com/satori/go.uuid"
 )
 
