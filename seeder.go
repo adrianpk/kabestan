@@ -10,6 +10,12 @@ import (
 )
 
 type (
+	SeederIF interface {
+		Seed() error
+	}
+)
+
+type (
 	// Fx type alias
 	SeedFx = func() error
 
@@ -70,6 +76,10 @@ func (m *Seeder) pgConnect() error {
 // GetTx returns a new transaction from seeder connection.
 func (s *Seeder) GetTx() *sqlx.Tx {
 	return s.DB.MustBegin()
+}
+
+func (s *Seeder) AddSeed(e SeedExec) {
+	s.seeds = append(s.seeds, &Seed{Executor: e})
 }
 
 func (s *Seeder) Seed() error {
