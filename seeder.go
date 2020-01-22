@@ -47,7 +47,7 @@ type (
 	seedRecord struct {
 		ID        uuid.UUID `db:"id" json:"id"`
 		Name      string    `db:"name" json:"name"`
-		Fx        string    `db:"up_fx" json:"upFx"`
+		Fx        string    `db:"fx" json:"fx"`
 		IsApplied bool      `db:"is_applied" json:"isApplied"`
 		CreatedAt time.Time `db:"created_at" json:"createdAt"`
 	}
@@ -126,9 +126,8 @@ func (s *Seeder) PreSetup() {
 // referenced database has been already created.
 // Only for postgress at the moment.
 func (s *Seeder) dbExists() bool {
-	st := fmt.Sprintf(`select exists(
-		SELECT datname FROM pg_catalog.pg_database WHERE lower(datname) = lower('%s')
-	);`, s.dbName)
+	st := fmt.Sprintf(`SELECT EXISTS(
+		SELECT datname FROM pg_catalog.pg_database WHERE lower(datname) = lower('%s'));`, s.dbName)
 
 	r, err := s.DB.Query(st)
 	if err != nil {
@@ -211,8 +210,8 @@ func (s *Seeder) AddSeed(e SeedExec) {
 func (s *Seeder) Seed() error {
 	s.PreSetup()
 
-	for _, mg := range s.seeds {
-		exec := mg.Executor
+	for _, sd := range s.seeds {
+		exec := sd.Executor
 		fn := getFxName(exec.GetSeed())
 		name := seedName(fn)
 
@@ -233,8 +232,8 @@ func (s *Seeder) Seed() error {
 		// Read error
 		err, ok := values[0].Interface().(error)
 		if !ok && err != nil {
-			log.Printf("Seed step not executed: %s\n", fn) // TODO: Remove log
-			log.Printf("Err  %+v' of type %T\n", err, err) // TODO: Remove log.
+			fmt.Printf("Seed step not executed: %s\n", fn) // TODO: Remove log
+			fmt.Printf("Err  %+v' of type %T\n", err, err) // TODO: Remove log.
 			msg := fmt.Sprintf("cannot run seeding '%s': %s", fn, err.Error())
 			tx.Rollback()
 			return errors.New(msg)
@@ -246,7 +245,7 @@ func (s *Seeder) Seed() error {
 		err = tx.Commit()
 		if err != nil {
 			msg := fmt.Sprintf("Commit error: %s\n", err.Error())
-			log.Printf("Commit error: %s", msg)
+			fmt.Printf("Commit error: %s\n", msg)
 			tx.Rollback()
 			return errors.New(msg)
 		}
@@ -284,7 +283,6 @@ func (s *Seeder) recSeed(e SeedExec) error {
 	st := fmt.Sprintf(pgRecSeederSt, s.schema, pgSeederTable)
 	fx := getFxName(e.GetSeed())
 	name := seedName(fx)
-	log.Printf("%+s", fx)
 
 	_, err := e.GetTx().NamedExec(st, seedRecord{
 		ID:        uuid.NewV4(),
@@ -295,6 +293,7 @@ func (s *Seeder) recSeed(e SeedExec) error {
 	})
 
 	if err != nil {
+		fmt.Println(err)
 		msg := fmt.Sprintf("Cannot update seeder table: %s\n", err.Error())
 		return errors.New(msg)
 	}

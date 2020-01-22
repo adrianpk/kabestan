@@ -142,9 +142,8 @@ func (m *Migrator) PreSetup() {
 // referenced database has been already created.
 // Only for postgress at the moment.
 func (m *Migrator) dbExists() bool {
-	st := fmt.Sprintf(`select exists(
-		SELECT datname FROM pg_catalog.pg_database WHERE lower(datname) = lower('%s')
-	);`, m.dbName)
+	st := fmt.Sprintf(`SELECT EXISTS(
+		SELECT datname FROM pg_catalog.pg_database WHERE lower(datname) = lower('%s'));`, m.dbName)
 
 	r, err := m.DB.Query(st)
 	if err != nil {
