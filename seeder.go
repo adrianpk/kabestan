@@ -6,8 +6,10 @@ import (
 	"fmt"
 	"log"
 	"reflect"
+	"time"
 
 	"github.com/jmoiron/sqlx"
+	uuid "github.com/satori/go.uuid"
 )
 
 type (
@@ -41,6 +43,14 @@ type (
 	Seed struct {
 		Executor SeedExec
 	}
+
+	seedRecord struct {
+		ID        uuid.UUID `db:"id" json:"id"`
+		Name      string    `db:"name" json:"name"`
+		Fx        string    `db:"up_fx" json:"upFx"`
+		IsApplied bool      `db:"is_applied" json:"isApplied"`
+		CreatedAt time.Time `db:"created_at" json:"createdAt"`
+	}
 )
 
 const (
@@ -56,12 +66,12 @@ const (
 
 	pgDropSeederSt = `DROP TABLE %s.%s;`
 
-	pgSelSeederSt = `SELECT is_applied FROM %s.%s WHERE name = '%s' and is_applied = true`
+	pgSelSeederSt = `SELECT is_applied FROM %s.%s WHERE name = '%s' and is_applied = true;`
 
-	pgReSeederSt = `INSERT INTO %s.%s (id, name, fx, is_applied, created_at)
+	pgRecSeederSt = `INSERT INTO %s.%s (id, name, fx, is_applied, created_at)
 		VALUES (:id, :name, :fx, :is_applied, :created_at);`
 
-	pgDelSeederSt = `DELETE FROM %s.%s WHERE name = '%s' and is_applied = true`
+	pgDelSeederSt = `DELETE FROM %s.%s WHERE name = '%s' and is_applied = true;`
 )
 
 // NewSeeder.
@@ -101,7 +111,7 @@ func (s *Seeder) GetTx() *sqlx.Tx {
 }
 
 // PreSetup creates database
-// and migrations table if needed.
+// and seeder table if needed.
 func (s *Seeder) PreSetup() {
 	if !s.dbExists() {
 		s.CreateDb()
@@ -112,7 +122,7 @@ func (s *Seeder) PreSetup() {
 	}
 }
 
-// dbExists returns true if migrator
+// dbExists returns true if seeder
 // referenced database has been already created.
 // Only for postgress at the moment.
 func (s *Seeder) dbExists() bool {
@@ -168,7 +178,7 @@ func (s *Seeder) seedTableExists() bool {
 	return false
 }
 
-// CreateDb migration.
+// CreateDb for seeder.
 func (s *Seeder) CreateDb() (string, error) {
 	//s.CloseAppConns()
 	st := fmt.Sprintf(pgCreateDbSt, s.dbName)
@@ -204,13 +214,20 @@ func (s *Seeder) Seed() error {
 	for _, mg := range s.seeds {
 		exec := mg.Executor
 		fn := getFxName(exec.GetSeed())
+		name := seedName(fn)
+
+		// Continue if already applied
+		if !s.canApplySeed(name) {
+			log.Printf("Seed '%s' already applied.", name)
+			continue
+		}
 
 		// Get a new Tx from seeder
 		tx := s.GetTx()
 		// Pass Tx to the executor
 		exec.SetTx(tx)
 
-		// Execute migration
+		// Execute seed
 		values := reflect.ValueOf(exec).MethodByName(fn).Call([]reflect.Value{})
 
 		// Read error
@@ -222,6 +239,9 @@ func (s *Seeder) Seed() error {
 			tx.Rollback()
 			return errors.New(msg)
 		}
+
+		// Register seed
+		err = s.recSeed(exec)
 
 		err = tx.Commit()
 		if err != nil {
@@ -235,6 +255,55 @@ func (s *Seeder) Seed() error {
 	}
 
 	return nil
+}
+
+func (s *Seeder) canApplySeed(name string) bool {
+	st := fmt.Sprintf(pgSelSeederSt, s.schema, pgSeederTable, name)
+	r, err := s.DB.Query(st)
+
+	if err != nil {
+		log.Printf("Cannot determine seeder status: %s\n", err.Error())
+		return false
+	}
+
+	for r.Next() {
+		var applied sql.NullBool
+		err = r.Scan(&applied)
+		if err != nil {
+			log.Printf("Cannot determine seeder status: %s\n", err.Error())
+			return false
+		}
+
+		return !applied.Bool
+	}
+
+	return true
+}
+
+func (s *Seeder) recSeed(e SeedExec) error {
+	st := fmt.Sprintf(pgRecSeederSt, s.schema, pgSeederTable)
+	fx := getFxName(e.GetSeed())
+	name := seedName(fx)
+	log.Printf("%+s", fx)
+
+	_, err := e.GetTx().NamedExec(st, seedRecord{
+		ID:        uuid.NewV4(),
+		Name:      name,
+		Fx:        fx,
+		IsApplied: true,
+		CreatedAt: time.Now(),
+	})
+
+	if err != nil {
+		msg := fmt.Sprintf("Cannot update seeder table: %s\n", err.Error())
+		return errors.New(msg)
+	}
+
+	return nil
+}
+
+func seedName(fxName string) string {
+	return toSnakeCase(fxName)
 }
 
 func (m *Seeder) dbURL() string {
