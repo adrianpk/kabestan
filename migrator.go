@@ -234,7 +234,6 @@ func (m *Migrator) CloseAppConns() (string, error) {
 	return m.dbName, nil
 }
 
-// DropDb migration.
 func (m *Migrator) createMigrationsTable() (string, error) {
 	tx := m.GetTx()
 
