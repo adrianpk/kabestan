@@ -82,12 +82,12 @@ const (
 
 	pgDropMigrationsSt = `DROP TABLE %s.%s;`
 
-	pgSelMigrationSt = `SELECT is_applied FROM %s.%s WHERE name = '%s' and is_applied = true`
+	pgSelMigrationSt = `SELECT is_applied FROM %s.%s WHERE name = '%s' and is_applied = true;`
 
 	pgRecMigrationSt = `INSERT INTO %s.%s (id, name, up_fx, down_fx, is_applied, created_at)
 		VALUES (:id, :name, :up_fx, :down_fx, :is_applied, :created_at);`
 
-	pgDelMigrationSt = `DELETE FROM %s.%s WHERE name = '%s' and is_applied = true`
+	pgDelMigrationSt = `DELETE FROM %s.%s WHERE name = '%s' and is_applied = true;`
 )
 
 // NewMigrator.
