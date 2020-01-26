@@ -414,7 +414,6 @@ func (m *Migrator) recMigration(e Exec) error {
 	upFx := getFxName(e.GetUp())
 	downFx := getFxName(e.GetDown())
 	name := migName(upFx)
-	log.Printf("%+s", upFx)
 
 	_, err := e.GetTx().NamedExec(st, migRecord{
 		ID:        uuid.NewV4(),
